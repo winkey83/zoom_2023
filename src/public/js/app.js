@@ -1,3 +1,10 @@
+function makeMessage(type, payload) {
+    return JSON.stringify({type, payload});
+}
+
+
+//-----------------------------------------------------
+// socket
 const socket = new WebSocket(`ws://${window.location.host}`);
 
 socket.addEventListener("open", () => {
@@ -5,13 +12,35 @@ socket.addEventListener("open", () => {
 });
 
 socket.addEventListener("message", (msg)=> {
-    console.log("Just got this: ", msg.data);
+    const li = document.createElement("li");
+    li.innerText = msg.data;
+    messageList.append(li);
 });
 
 socket.addEventListener("close", () => {
     console.log("Disconnected from Server ⛔");
 });
 
-setTimeout(()=>{
-    socket.send("hello from the browser !");
-}, 5000);
+
+//-----------------------------------------------------
+// nick
+const nickForm = document.querySelector("#nick");
+
+nickForm.addEventListener("submit", (event)=>{
+    event.preventDefault();
+    const input = nickForm.querySelector("input");
+    socket.send(makeMessage("nickname", input.value));
+});
+
+
+//-----------------------------------------------------
+// message
+const messageList = document.querySelector("ul");
+const messageForm = document.querySelector("#message");
+
+messageForm.addEventListener("submit", (event)=> {
+    event.preventDefault();
+    const input = messageForm.querySelector("input");
+    socket.send(makeMessage("new_message", input.value));
+    input.value="";
+});
