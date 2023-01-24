@@ -17,18 +17,44 @@ function addMessage(msg){
 }
 
 const welcome = document.getElementById("welcome");
-const room = document.getElementById("room");
-room.hidden = true;
+welcome.querySelector("form").addEventListener("submit",handleRoomSubmit);
 
-welcome.querySelector("form").addEventListener("submit", (event)=>{
+function handleRoomSubmit(event) {
     event.preventDefault();
     const input = event.target.querySelector("input");
-    socket.emit("enter_room", { payload: input.value }, enterRoom);
+    socket.emit("enter_room", input.value, enterRoom);
     roomName = input.value;
     input.value = "";
+}
+
+const room = document.getElementById("room");
+room.querySelector("#nickname").addEventListener("submit", handleNicknameSubmit);
+room.querySelector("#msg").addEventListener("submit", handleMessageSubmit);
+room.hidden = true;
+
+function handleNicknameSubmit(event) {
+    event.preventDefault();
+    const input = event.target.querySelector("input");
+    const value = input.value;
+    socket.emit("nickname", input.value);
+}
+
+function handleMessageSubmit(event) {
+    event.preventDefault();
+    const input = event.target.querySelector("input");
+    const value = input.value;
+    socket.emit("new_message", roomName, input.value, ()=>{
+        addMessage(`You: ${value}`);
+    });
+    input.value = "";
+}
+
+socket.on("welcome", (user)=>{
+    addMessage(`${user} Joined`);
 });
 
-socket.on("welcome", ()=>{
-    console.log("asdfsa");
-    addMessage("SomeoneJoined");
-})
+socket.on("bye", (user)=>{
+    addMessage(`${user} Left`);
+});
+
+socket.on("new_message", addMessage);
