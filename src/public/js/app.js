@@ -49,12 +49,16 @@ function handleMessageSubmit(event) {
     input.value = "";
 }
 
-socket.on("welcome", (user)=>{
+socket.on("welcome", (user, newCount)=>{
     addMessage(`${user} Joined`);
+    const h3 = room.querySelector("h3");
+    h3.innerText = `Room ${roomName} (${newCount})`;
 });
 
-socket.on("bye", (user)=>{
+socket.on("bye", (user, newCount)=>{
     addMessage(`${user} Left`);
+    const h3 = room.querySelector("h3");
+    h3.innerText = `Room ${roomName} (${newCount})`;
 });
 
 socket.on("new_message", addMessage);
