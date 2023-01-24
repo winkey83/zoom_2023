@@ -1,51 +1,34 @@
-function makeMessage(type, payload) {
-    return JSON.stringify({type, payload});
+const socket = io();
+
+let roomName;
+
+function enterRoom() {
+    welcome.hidden = true;
+    room.hidden = false;
+    const h3 = room.querySelector("h3");
+    h3.innerText = `Room ${roomName}`;
 }
 
-
-//-----------------------------------------------------
-// socket
-const socket = new WebSocket(`ws://${window.location.host}`);
-
-socket.addEventListener("open", () => {
-    console.log("Connected to Server ✔");
-});
-
-socket.addEventListener("message", (msg)=> {
+function addMessage(msg){
+    const ul = room.querySelector("ul");
     const li = document.createElement("li");
-    li.innerText = msg.data;
-    messageList.append(li);
-});
+    li.innerText = msg;
+    ul.appendChild(li);
+}
 
-socket.addEventListener("close", () => {
-    console.log("Disconnected from Server ⛔");
-});
+const welcome = document.getElementById("welcome");
+const room = document.getElementById("room");
+room.hidden = true;
 
-
-//-----------------------------------------------------
-// nick
-const nickForm = document.querySelector("#nick");
-
-nickForm.addEventListener("submit", (event)=>{
+welcome.querySelector("form").addEventListener("submit", (event)=>{
     event.preventDefault();
-    const input = nickForm.querySelector("input");
-    socket.send(makeMessage("nickname", input.value));
+    const input = event.target.querySelector("input");
+    socket.emit("enter_room", { payload: input.value }, enterRoom);
+    roomName = input.value;
+    input.value = "";
 });
 
-
-//-----------------------------------------------------
-// message
-const messageList = document.querySelector("ul");
-const messageForm = document.querySelector("#message");
-
-messageForm.addEventListener("submit", (event)=> {
-    event.preventDefault();
-    const input = messageForm.querySelector("input");
-    socket.send(makeMessage("new_message", input.value));
-
-    const li = document.createElement("li");
-    li.innerText = `You: ${input.value}`;
-    messageList.append(li);
-
-    input.value="";
-});
+socket.on("welcome", ()=>{
+    console.log("asdfsa");
+    addMessage("SomeoneJoined");
+})

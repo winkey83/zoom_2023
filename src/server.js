@@ -1,5 +1,5 @@
 import http from "http"
-import WebSocket from "ws";
+import SocketIO from "socket.io"
 import express, { application } from "express"
 
 
@@ -10,14 +10,25 @@ app.use("/public", express.static(__dirname + "/public"));
 app.get("/", (req, res) => res.render("home"));
 app.get("/*", (req, res) => res.redirect("/"));
 
-const server = http.createServer(app);
+const httpServer = http.createServer(app);
+const wsServer = SocketIO(httpServer);
+
+wsServer.on("connection", socket => {
+    socket.onAny(event=>{
+        console.log(`Socket Event: ${event}`);
+    });
+    socket.on("enter_room", (roomName, done) => {
+        socket.join(roomName);
+        done();
+        socket.to(roomName).emit("welcome");
+    });
+});
+
+
+/*
 const wss = new WebSocket.Server({ server });
 
-const handleListen = () => { console.log('listening...') };
-
-
 const sockets = [];
-
 wss.on("connection", (socket) => { 
     sockets.push(socket);
     socket["nickname"]="NoName"
@@ -35,5 +46,8 @@ wss.on("connection", (socket) => {
         }
     });
 });
+*/
 
-server.listen(3000, handleListen);
+httpServer.listen(3000, 
+    () => { console.log('listening...') }
+);
