@@ -9,37 +9,40 @@ const welcome = document.getElementById("welcome");
 const welcomeForm = welcome.querySelector("form");
 call.hidden = true;
 
-function startMedia(){
-  welcome.hidden =true;
+async function initCall() {
+  welcome.hidden = true;
   call.hidden = false;
-  getMedia();
+  await getMedia();
+  makeConnection();
 }
 
 let roomName;
-function handleWelcomeSubmit(event){
+async function handleWelcomeSubmit(event) {
   event.preventDefault();
   const input = welcomeForm.querySelector("input");
-  socket.emit("join_room", input.value, startMedia);
+  await initCall();
+  socket.emit("join_room", input.value);
   roomName = input.value;
-  input.value="";
+  input.value = "";
 }
 welcomeForm.addEventListener("submit", handleWelcomeSubmit);
 
 let myStream;
 let muted = false;
 let cameraOff = false;
+let myPeerCon;
 
 async function getCameras() {
   try {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const cameras = devices.filter((d) => d.kind === "videoinput");
-        const currentCamera = myStream.getVideoTracks()[0];
+    const currentCamera = myStream.getVideoTracks()[0];
 
     cameras.forEach((c) => {
       const opt = document.createElement("option");
       opt.value = c.deviceId;
       opt.innerText = c.label;
-      if(currentCamera.label == c.label){
+      if (currentCamera.label == c.label) {
         opt.selected = true;
       }
       camerasSelect.appendChild(opt);
@@ -65,7 +68,7 @@ async function getMedia(deviceId) {
       deviceId ? cameraConstraints : initialConstraints
     );
     myFace.srcObject = myStream;
-    if(!deviceId) {
+    if (!deviceId) {
       await getCameras();
     }
   } catch (error) {
@@ -101,6 +104,13 @@ function handleCameraBtnClick() {
 
 async function handleCameraChange() {
   await getMedia(camerasSelect.value);
+  if (myPeerCon) {
+    const videoTrack = myStream.getVideoTracks()[0];
+    const videoSender = myPeerCon
+      .getSenders()
+      .find((s) => s.track.kind === "video");
+    videoSender.replaceTrack(videoTrack);
+  }
 }
 
 muteBtn.addEventListener("click", handleMuteBtnClick);
@@ -109,6 +119,57 @@ camerasSelect.addEventListener("input", handleCameraChange);
 
 // Socket
 
-socket.on("welcome", ()=>{
-  console.log("welcome");
+socket.on("welcome", async () => {
+  const offer = await myPeerCon.createOffer();
+  myPeerCon.setLocalDescription(offer);
+  console.log("sent the offer");
+  socket.emit("offer", offer, roomName);
 });
+
+socket.on("offer", async (offer) => {
+  console.log("received the offer");
+  myPeerCon.setRemoteDescription(offer);
+  const answer = await myPeerCon.createAnswer();
+  myPeerCon.setLocalDescription(answer);
+  socket.emit("answer", answer, roomName);
+  console.log("sent the answer");
+});
+
+socket.on("answer", (answer) => {
+  console.log("received the answer");
+  myPeerCon.setRemoteDescription(answer);
+});
+
+socket.on("ice", (ice) => {
+  console.log("received ice candidate");
+  myPeerCon.addIceCandidate(ice);
+});
+
+function makeConnection() {
+  myPeerCon = new RTCPeerConnection({
+    iceServers:[
+      {
+        urls: [
+          "stun:stun.l.google.com:19302",
+          "stun:stun1.l.google.com:19302",
+          "stun:stun2.l.google.com:19302",
+          "stun:stun3.l.google.com:19302",
+          "stun:stun4.l.google.com:19302",
+        ]
+      }
+    ]
+  });
+  myPeerCon.addEventListener("icecandidate", handleIce);
+  myPeerCon.addEventListener("addstream", handleAddStream);
+  myStream.getTracks().forEach((track) => myPeerCon.addTrack(track, myStream));
+}
+
+function handleIce(data) {
+  socket.emit("ice", data.candidate, roomName);
+  console.log("sent ice candidate");
+}
+
+function handleAddStream(data) {
+  const peerFace = document.getElementById("peerFace");
+  peerFace.srcObject = data.stream;
+}
